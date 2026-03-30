@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "vite dev",
+    "debug": "vite dev --mode debug",
     "build": "pnpm run typecheck && vite build",
     "clean": "find ./dist -maxdepth 1 -mindepth 1 ! -name '.gitkeep' -exec rm -r {} +",
     "typecheck": "vue-tsc -p ./tsconfig.app.json --noEmit",

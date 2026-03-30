@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "firefox",
+      "request": "launch",
+      "name": "Debug Vite (Firefox)",
+      "url": "http://localhost:5173", // Vite dev server URL
+      "webRoot": "${workspaceFolder}/src",
+      "pathMappings": [
+        {
+          "url": "webpack:///src", // Maps Vite's virtual paths to your source
+          "path": "${webRoot}"
+        }
+      ],
+      "reAttach": true, // Reattach to existing Firefox instance
+      "skipFiles": ["<node_internals>/**"],
+      "firefoxExecutable": "/usr/bin/firefox-developer-edition", // Optional: Custom Firefox path
+      "profileDir": "${env:HOME}/.mozilla/firefox/dev-profile" // Optional: Custom Firefox profile
+    }
+  ]
+}

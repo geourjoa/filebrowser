@@ -64,6 +64,10 @@ export default defineConfig(({ command }) => {
             },
           },
         },
+        sourcemap: true,
+      },
+      esbuild: {
+        sourcemap: true, // Ensures source maps work in dev mode
       },
       experimental: {
         renderBuiltUrl(filename, { hostType }) {
