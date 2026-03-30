@@ -4,8 +4,8 @@ import url from "@/utils/url";
 import { files as api } from '@/api';
 
 interface UploadEntryWithChild extends UploadEntry {
-  children?: UploadEntry[];
-  originalIndex : number;
+  children?: UploadEntryWithChild[];
+  originalIndex: number;
 }
 
 function flatToTree(flatArray: UploadList): UploadEntryWithChild | null {
@@ -76,14 +76,7 @@ export async function deepCheckConflict(
         const res = await api.fetch(serverPath);
         serverItems = res.items || [];
 
-        function getFileInServerItems(fullPath: string): ResourceItem | null {
-          for (const item of serverItems) {
-            // TODO
-            if (item.path == fullPath) return item;
-          }
 
-          return null;
-        }
       } catch {
         // Directory doesn't exist on server, no conflicts possible
         return;
@@ -93,22 +86,31 @@ export async function deepCheckConflict(
         if(child.isDir) {
           conflictsResources = await recursiveCheckConflict(
             child,
-            `${serverPath}${encodeURIComponent(child.name)}${child.isDir ? "/" : ""}`
+            serverPath + encodeURIComponent(file.name) + "/"
           );
           conflicts.push(...conflictsResources);
         } else {
-          const item = getFileInServerItems(name);
-          if (item != null) {
+          function getFileInServerItems(fullPath: string): ResourceItem | null {
+            for (const item of serverItems) {
+              // TODO
+              if (item.path == fullPath) return item;
+            }
+
+            return null;
+          }
+
+          const serverItem = getFileInServerItems(`${serverPath}${encodeURIComponent(child.name)}`);
+          if (serverItem) {
             conflicts.push({
-              index: i,
-              name: item.path,
+              index: child.originalIndex,
+              name: serverItem.path,
               origin: {
-                lastModified: file.modified || file.file?.lastModified,
-                size: file.size,
+                lastModified: child.file?.lastModified,
+                size: child.size,
               },
               dest: {
-                lastModified: item.modified,
-                size: item.size,
+                lastModified: serverItem.modified,
+                size: serverItem.size,
               },
               checked: ["origin"],
             });
