@@ -1,6 +1,23 @@
 import { useLayoutStore } from "@/stores/layout";
 import { useUploadStore } from "@/stores/upload";
 import url from "@/utils/url";
+import { files as api } from '@/api';
+
+export function recursiveCheckConflict(files : UploadList) : ConflictingResource[] {
+  if (typeof dest === "undefined" || dest === null) {
+    dest = [];
+  }
+  const conflictingFiles: ConflictingResource[] = [];
+
+  const folder_upload = files[0].fullPath !== undefined;
+
+  const path = "TODO"; // Current path to check
+
+  const items = (await api.fetch(path)).items;
+
+
+}
+
 
 export function checkConflict(
   files: UploadList | Array<any>,
@@ -22,6 +39,11 @@ export function checkConflict(
     return null;
   }
 
+  function getParentFolderPath(file : UploadEntry) {
+    // Separate filepath, remove last element (name of the file), return resulting path
+    return file.fullPath.split("/").slice(0, -1).join("/");
+  }
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const name = file.name;
@@ -33,6 +55,8 @@ export function checkConflict(
       // parent folder exists blocks the whole upload (see #5798), so skip
       // preflight conflict detection for nested files.
       if (dirs && dirs.length > 1) {
+        const localConflicts = checkConflict()
+
         continue;
       }
     }
@@ -45,6 +69,8 @@ export function checkConflict(
     //     return item.path === file.fullPath
     //   })[0];
     // }
+
+
 
     const item = getFile(name);
     if (item != null) {
