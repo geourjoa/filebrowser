@@ -72,7 +72,6 @@ export async function deepCheckConflict(
 
     if (file.isDir && file.children) {
       try {
-        // TODO Find the good path
         const res = await api.fetch(serverPath);
         serverItems = res.items || [];
 
@@ -99,7 +98,10 @@ export async function deepCheckConflict(
             return null;
           }
 
-          const serverItem = getFileInServerItems(`${serverPath}${encodeURIComponent(child.name)}`);
+          const serverItem = getFileInServerItems(
+            `${base}${encodeURIComponent(child.fullPath!)}`
+          );
+
           if (serverItem) {
             conflicts.push({
               index: child.originalIndex,
