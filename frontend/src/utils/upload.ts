@@ -3,7 +3,72 @@ import { useUploadStore } from "@/stores/upload";
 import url from "@/utils/url";
 import { files as api } from '@/api';
 
-export function recursiveCheckConflict(files : UploadList) : ConflictingResource[] {
+interface FileNode {
+  name: string;
+  fullPath: string;
+  isDir: boolean;
+  size: number;
+  file?: object;
+  children?: FileNode[];
+}
+
+interface FlatItem {
+  name: string;
+  fullPath: string;
+  isDir: boolean;
+  size: number;
+  file?: object;
+}
+
+function flatToTree(flatArray: FlatItem[]): FileNode | null {
+  const nodeMap: Record<string, FileNode> = {};
+
+  // First pass: create all nodes
+  flatArray.forEach((item) => {
+    nodeMap[item.fullPath] = {
+      name: item.name,
+      fullPath: item.fullPath,
+      isDir: item.isDir,
+      size: item.size,
+      ...(item.isDir && { children: [] }),
+      ...(item.file && { file: item.file }),
+    };
+  });
+
+  let root: FileNode | null = null;
+
+  // Second pass: build hierarchy
+  flatArray.forEach((item) => {
+    const node = nodeMap[item.fullPath];
+    const lastSlash = item.fullPath.lastIndexOf("/");
+
+    if (lastSlash === -1) {
+      root = node;
+    } else {
+      const parentPath = item.fullPath.substring(0, lastSlash);
+      const parent = nodeMap[parentPath];
+      if (parent?.children) {
+        parent.children.push(node);
+      }
+    }
+  });
+
+  return root;
+}
+
+
+
+
+
+export function treeCheckConflict(files : UploadList) : ConflictingResource[] {
+
+
+}
+
+export function checkConflict(
+  files: UploadList | Array<any>,
+  dest: ResourceItem[]
+): ConflictingResource[] {
   if (typeof dest === "undefined" || dest === null) {
     dest = [];
   }
@@ -11,11 +76,48 @@ export function recursiveCheckConflict(files : UploadList) : ConflictingResource
 
   const folder_upload = files[0].fullPath !== undefined;
 
-  const path = "TODO"; // Current path to check
+  function getFile(name: string): ResourceItem | null {
+    for (const item of dest) {
+      if (item.name == name) return item;
+    }
 
-  const items = (await api.fetch(path)).items;
+    return null;
+  }
 
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const name = file.name;
 
+    if (folder_upload && file.isDir) {
+      const dirs = file.fullPath?.split("/");
+      // For folder uploads, destination listing is flat and only contains
+      // top-level entries. Treating every nested file as a conflict when the
+      // parent folder exists blocks the whole upload (see #5798), so skip
+      // preflight conflict detection for nested files.
+      if (dirs && dirs.length > 1) {
+        continue;
+      }
+    }
+
+    const item = getFile(name);
+    if (item != null) {
+      conflictingFiles.push({
+        index: i,
+        name: item.path,
+        origin: {
+          lastModified: file.modified || file.file?.lastModified,
+          size: file.size,
+        },
+        dest: {
+          lastModified: item.modified,
+          size: item.size,
+        },
+        checked: ["origin"],
+      });
+    }
+  }
+
+  return conflictingFiles;
 }
 
 
