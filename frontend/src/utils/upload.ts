@@ -3,17 +3,12 @@ import { useUploadStore } from "@/stores/upload";
 import url from "@/utils/url";
 import { files as api } from '@/api';
 
-interface FileNode {
-  name: string;
-  fullPath: string;
-  isDir: boolean;
-  size: number;
-  file?: object;
-  children?: FileNode[];
+interface UploadEntryWithChild extends UploadEntry {
+  children?: UploadEntry[];
 }
 
-function flatToTree(flatArray: UploadList): FileNode | null {
-  const nodeMap: Record<string, FileNode> = {};
+function flatToTree(flatArray: UploadList): UploadEntryWithChild | null {
+  const nodeMap: Record<string, UploadEntryWithChild> = {};
 
 
   // First pass: create all nodes
@@ -28,7 +23,7 @@ function flatToTree(flatArray: UploadList): FileNode | null {
     };
   });
 
-  let root: FileNode | null = null;
+  let root: UploadEntryWithChild | null = null;
 
   // Second pass: build hierarchy
   flatArray.forEach((item) => {
@@ -58,7 +53,7 @@ function flatToTree(flatArray: UploadList): FileNode | null {
  * @param files  - flat upload list to check
  * @param base   - server destination path (e.g. "/files/uploads/")
  */
-export async function treeCheckConflict(
+export async function deepCheckConflict(
   files: UploadList,
   base: string
 ): Promise<ConflictingResource[]> {
@@ -67,55 +62,60 @@ export async function treeCheckConflict(
 
   const conflicts: ConflictingResource[] = [];
 
-  async function checkChildren(
-    children: FileNode[],
+  async function recursiveCheckConflict(
+    file: UploadEntryWithChild,
     serverPath: string
   ): Promise<void> {
     let serverItems: ResourceItem[] = [];
-    try {
-      const res = await api.fetch(serverPath);
-      serverItems = res.items || [];
-    } catch {
-      // Directory doesn't exist on server, no conflicts possible
-      return;
-    }
+    let conflictsResources: ConflictingResource = [];
 
-    for (const child of children) {
-      const match = serverItems.find((item) => item.name === child.name);
-      if (!match) continue;
-
-      if (child.isDir && child.children) {
-        // Directory exists on both sides, recurse deeper
-        await checkChildren(
-          child.children,
-          `${serverPath}${encodeURIComponent(child.name)}/`
-        );
-      } else if (!child.isDir) {
-        // File conflict found
-        const uploadIndex = files.findIndex(
-          (f) => f.fullPath === child.fullPath
-        );
-        conflicts.push({
-          index: uploadIndex !== -1 ? uploadIndex : 0,
-          name: match.path,
-          origin: {
-            lastModified: child.file
-              ? (child.file as File).lastModified
-              : undefined,
-            size: child.size,
-          },
-          dest: {
-            lastModified: match.modified,
-            size: match.size,
-          },
-          checked: ["origin"],
-        });
+    if (file.isDir && file.children) {
+      try {
+        // TODO Find the good path
+        const res = await api.fetch(serverPath);
+        serverItems = res.items || [];
+      } catch {
+        // Directory doesn't exist on server, no conflicts possible
+        return;
       }
+
+      for (const child of file.children) {
+        conflictsResources = await recursiveCheckConflict(
+          child,
+          `${serverPath}${encodeURIComponent(child.name)}${child.isDir ? "/" : ""}`
+        );
+        conflicts.push(...conflictsResources);
+      }
+      return conflictsResources;
+
+    } else {
+      const uploadIndex = files.findIndex(
+        (f) => f.fullPath === child.fullPath
+      );
+      conflicts.push({
+        index: uploadIndex !== -1 ? uploadIndex : 0,
+        name: match.path,
+        origin: {
+          lastModified: child.file
+            ? (child.file as File).lastModified
+            : undefined,
+          size: child.size,
+        },
+        dest: {
+          lastModified: match.modified,
+          size: match.size,
+        },
+        checked: ["origin"],
+      });
     }
+
+    return conflictsResources;
   }
 
+
+
   // Start by checking the root node against the base destination
-  await checkChildren([tree], base);
+  await recursiveCheckConflict(tree, base);
 
   return conflicts;
 }
