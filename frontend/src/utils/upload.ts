@@ -11,7 +11,6 @@ interface UploadEntryWithChild extends UploadEntry {
 function flatToTree(flatArray: UploadList): UploadEntryWithChild | null {
   const nodeMap: Record<string, UploadEntryWithChild> = {};
 
-
   // First pass: create all nodes
   flatArray.forEach((item) => {
     nodeMap[item.fullPath!] = {
@@ -19,6 +18,7 @@ function flatToTree(flatArray: UploadList): UploadEntryWithChild | null {
       isDir: item.isDir,
       name: item.name,
       size: item.size,
+      originalIndex: flatArray.indexOf(item),
       ...(item.isDir && { children: [] }),
       ...(item.file && { file: item.file }),
     };
@@ -72,9 +72,8 @@ export async function deepCheckConflict(
 
     if (file.isDir && file.children) {
       try {
-        const res = await api.fetch(serverPath + "/" + file.name);
+        const res = await api.fetch(serverPath + file.name);
         serverItems = res.items || [];
-
 
       } catch {
         // Directory doesn't exist on server, no conflicts possible
@@ -83,7 +82,7 @@ export async function deepCheckConflict(
       }
 
       for (const child of file.children) {
-        if(child.isDir) {
+        if(child.isDir && child.children) {
           conflictsResources = await recursiveCheckConflict(
             child,
             serverPath + encodeURIComponent(file.name) + "/"
@@ -93,8 +92,8 @@ export async function deepCheckConflict(
           function getFileInServerItems(fullPath: string): ResourceItem | null {
             const cleanFullPath = fullPath.replaceAll("/", "");
             for (const item of serverItems) {
-              // TODO
               if (item.url.replaceAll("/", "") == cleanFullPath) {
+                console.log(`Conflict found: ${item.path} on server matches ${fullPath} on upload list`);
                 return item;
               }
             }
