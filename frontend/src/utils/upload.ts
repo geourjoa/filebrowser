@@ -72,13 +72,14 @@ export async function deepCheckConflict(
 
     if (file.isDir && file.children) {
       try {
-        const res = await api.fetch(serverPath);
+        const res = await api.fetch(serverPath + "/" + file.name);
         serverItems = res.items || [];
 
 
       } catch {
         // Directory doesn't exist on server, no conflicts possible
-        return;
+        console.error(`Failed to fetch server listing for ${serverPath}. Assuming directory doesn't exist and skipping conflict check for this branch.`);
+        return [];
       }
 
       for (const child of file.children) {
@@ -90,16 +91,19 @@ export async function deepCheckConflict(
           conflicts.push(...conflictsResources);
         } else {
           function getFileInServerItems(fullPath: string): ResourceItem | null {
+            const cleanFullPath = fullPath.replaceAll("/", "");
             for (const item of serverItems) {
               // TODO
-              if (item.path == fullPath) return item;
+              if (item.url.replaceAll("/", "") == cleanFullPath) {
+                return item;
+              }
             }
 
             return null;
           }
 
           const serverItem = getFileInServerItems(
-            `${base}${encodeURIComponent(child.fullPath!)}`
+            `${base}${child.fullPath!}`
           );
 
           if (serverItem) {
@@ -122,8 +126,6 @@ export async function deepCheckConflict(
     }
     return conflictsResources;
   }
-
-
 
   // Start by checking the root node against the base destination
   await recursiveCheckConflict(tree, base);
