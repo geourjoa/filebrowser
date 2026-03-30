@@ -5,6 +5,7 @@ import { files as api } from '@/api';
 
 interface UploadEntryWithChild extends UploadEntry {
   children?: UploadEntry[];
+  originalIndex : number;
 }
 
 function flatToTree(flatArray: UploadList): UploadEntryWithChild | null {
@@ -65,50 +66,56 @@ export async function deepCheckConflict(
   async function recursiveCheckConflict(
     file: UploadEntryWithChild,
     serverPath: string
-  ): Promise<void> {
+  ): Promise<ConflictingResource[]> {
     let serverItems: ResourceItem[] = [];
-    let conflictsResources: ConflictingResource = [];
+    let conflictsResources: ConflictingResource[] = [];
 
     if (file.isDir && file.children) {
       try {
         // TODO Find the good path
         const res = await api.fetch(serverPath);
         serverItems = res.items || [];
+
+        function getFileInServerItems(fullPath: string): ResourceItem | null {
+          for (const item of serverItems) {
+            // TODO
+            if (item.path == fullPath) return item;
+          }
+
+          return null;
+        }
       } catch {
         // Directory doesn't exist on server, no conflicts possible
         return;
       }
 
       for (const child of file.children) {
-        conflictsResources = await recursiveCheckConflict(
-          child,
-          `${serverPath}${encodeURIComponent(child.name)}${child.isDir ? "/" : ""}`
-        );
-        conflicts.push(...conflictsResources);
+        if(child.isDir) {
+          conflictsResources = await recursiveCheckConflict(
+            child,
+            `${serverPath}${encodeURIComponent(child.name)}${child.isDir ? "/" : ""}`
+          );
+          conflicts.push(...conflictsResources);
+        } else {
+          const item = getFileInServerItems(name);
+          if (item != null) {
+            conflicts.push({
+              index: i,
+              name: item.path,
+              origin: {
+                lastModified: file.modified || file.file?.lastModified,
+                size: file.size,
+              },
+              dest: {
+                lastModified: item.modified,
+                size: item.size,
+              },
+              checked: ["origin"],
+            });
+          }
+        }
       }
-      return conflictsResources;
-
-    } else {
-      const uploadIndex = files.findIndex(
-        (f) => f.fullPath === child.fullPath
-      );
-      conflicts.push({
-        index: uploadIndex !== -1 ? uploadIndex : 0,
-        name: match.path,
-        origin: {
-          lastModified: child.file
-            ? (child.file as File).lastModified
-            : undefined,
-          size: child.size,
-        },
-        dest: {
-          lastModified: match.modified,
-          size: match.size,
-        },
-        checked: ["origin"],
-      });
     }
-
     return conflictsResources;
   }
 
