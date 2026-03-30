@@ -12,23 +12,16 @@ interface FileNode {
   children?: FileNode[];
 }
 
-interface FlatItem {
-  name: string;
-  fullPath: string;
-  isDir: boolean;
-  size: number;
-  file?: object;
-}
-
-function flatToTree(flatArray: FlatItem[]): FileNode | null {
+function flatToTree(flatArray: UploadList): FileNode | null {
   const nodeMap: Record<string, FileNode> = {};
+
 
   // First pass: create all nodes
   flatArray.forEach((item) => {
-    nodeMap[item.fullPath] = {
-      name: item.name,
-      fullPath: item.fullPath,
+    nodeMap[item.fullPath!] = {
+      fullPath: item.fullPath!,
       isDir: item.isDir,
+      name: item.name,
       size: item.size,
       ...(item.isDir && { children: [] }),
       ...(item.file && { file: item.file }),
@@ -39,13 +32,15 @@ function flatToTree(flatArray: FlatItem[]): FileNode | null {
 
   // Second pass: build hierarchy
   flatArray.forEach((item) => {
-    const node = nodeMap[item.fullPath];
-    const lastSlash = item.fullPath.lastIndexOf("/");
+    // TODO C'est un problème si item.fullPath est undefined
+
+    const node = nodeMap[item.fullPath!];
+    const lastSlash = item.fullPath!.lastIndexOf("/");
 
     if (lastSlash === -1) {
       root = node;
     } else {
-      const parentPath = item.fullPath.substring(0, lastSlash);
+      const parentPath = item.fullPath!.substring(0, lastSlash);
       const parent = nodeMap[parentPath];
       if (parent?.children) {
         parent.children.push(node);
@@ -56,12 +51,11 @@ function flatToTree(flatArray: FlatItem[]): FileNode | null {
   return root;
 }
 
-
-
-
-
-export function treeCheckConflict(files : UploadList) : ConflictingResource[] {
-
+/**
+ * Return conflict files from the tree structure instead the classic UploadList
+ * @param files
+ */
+export function treeCheckConflict(files: UploadList): ConflictingResource[] {
 
 }
 
@@ -115,11 +109,12 @@ export function checkConflict(
         checked: ["origin"],
       });
     }
+
+    // Add check on Size
   }
 
   return conflictingFiles;
 }
-
 
 export function scanFiles(dt: DataTransfer): Promise<UploadList | FileList> {
   return new Promise((resolve) => {
