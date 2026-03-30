@@ -13,6 +13,7 @@ export function checkConflict(
 
   const folder_upload = files[0].fullPath !== undefined;
 
+  // TODO Will be deleted after fixing the content of dest variable
   function getFile(name: string): ResourceItem | null {
     for (const item of dest) {
       if (item.name == name) return item;
@@ -35,6 +36,15 @@ export function checkConflict(
         continue;
       }
     }
+
+    // TODO Use it after validating good dest value
+    // function isFilePresentInDest(filePathFromUploadFolder : string ){
+    //   return dest.filter(function (item){
+    //     // TODO will be mplemented after
+    //     // Need to compare path and fullPath
+    //     return item.path === file.fullPath
+    //   })[0];
+    // }
 
     const item = getFile(name);
     if (item != null) {
