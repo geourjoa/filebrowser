@@ -113,7 +113,6 @@ export async function deepCheckConflict(
             const cleanFullPath = fullPath.replaceAll("/", "");
             for (const item of serverItems) {
               if (item.url.replaceAll("/", "") == cleanFullPath) {
-                console.log(`Conflict found: ${item.path} on server matches ${fullPath} on upload list`);
                 return item;
               }
             }
