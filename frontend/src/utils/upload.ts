@@ -105,6 +105,10 @@ export async function deepCheckConflict(
           );
           conflicts.push(...conflictsResources);
         } else {
+          /**
+           * Get file in server items if available.
+           * @param fullPath
+           */
           function getFileInServerItems(fullPath: string): ResourceItem | null {
             const cleanFullPath = fullPath.replaceAll("/", "");
             for (const item of serverItems) {
