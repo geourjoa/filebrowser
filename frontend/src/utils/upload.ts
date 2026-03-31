@@ -8,6 +8,12 @@ interface UploadEntryWithChild extends UploadEntry {
   originalIndex: number;
 }
 
+/**
+ * Convert UploadList into a tree. The root node is an UploadEntryWithChild.
+ * It will be easier to check conflicts with the server when we have the tree structure, as we can fetch server
+ * listings at each directory level and compare with the corresponding subtree.
+ * @param flatArray
+ */
 function flatToTree(flatArray: UploadList): UploadEntryWithChild | null {
   const nodeMap: Record<string, UploadEntryWithChild> = {};
 
@@ -67,6 +73,13 @@ export async function deepCheckConflict(
 
   const conflicts: ConflictingResource[] = [];
 
+  /**
+   * Recursively check for conflicts between the upload tree and the server listing at the given path.
+   * For directories, it fetches the server listing and checks each child node against it. For files, it directly checks for a conflict.
+   * The serverPath should always end with a slash, and the file.fullPath should be relative to the base (i.e. not start with a slash).
+   * @param file
+   * @param serverPath
+   */
   async function recursiveCheckConflict(
     file: UploadEntryWithChild,
     serverPath: string
