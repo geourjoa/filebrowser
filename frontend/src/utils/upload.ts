@@ -58,6 +58,10 @@ export async function deepCheckConflict(
   files: UploadList,
   base: string
 ): Promise<ConflictingResource[]> {
+  console.log("Starting deepCheck conflict");
+  console.debug(files.length + " possible conflict found:");
+  console.debug(files);
+
   const tree = flatToTree(files);
   if (!tree) return [];
 
@@ -74,7 +78,6 @@ export async function deepCheckConflict(
       try {
         const res = await api.fetch(serverPath + file.name);
         serverItems = res.items || [];
-
       } catch {
         // Directory doesn't exist on server, no conflicts possible
         console.error(`Failed to fetch server listing for ${serverPath}. Assuming directory doesn't exist and skipping conflict check for this branch.`);
@@ -128,6 +131,9 @@ export async function deepCheckConflict(
 
   // Start by checking the root node against the base destination
   await recursiveCheckConflict(tree, base);
+
+  console.debug(conflicts.length + " conflicts found:");
+  console.debug(conflicts);
 
   return conflicts;
 }
