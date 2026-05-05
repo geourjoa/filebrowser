@@ -29,6 +29,8 @@
     "rename": "Rename",
     "replace": "Replace",
     "reportIssue": "Report Issue",
+    "resumeTransfer": "Resume previous transfert",
+    "resumeTransferTooltip": "Skip all conflicting files, except the ones that are smaller on the server as we suppose that their transfert has been interrupted.",
     "save": "Save",
     "schedule": "Schedule",
     "search": "Search",
@@ -245,7 +247,7 @@
       "execute": "Execute commands",
       "modify": "Edit files",
       "rename": "Rename or move files and directories",
-      "share": "Share files"
+      "share": "Share files (require download permission)"
     },
     "permissions": "Permissions",
     "permissionsHelp": "You can set the user to be an administrator or choose the permissions individually. If you select \"Administrator\", all of the other options will be automatically checked. The management of users remains a privilege of an administrator.\n",
@@ -281,6 +283,7 @@
     "currentPassword": "Your Current Password"
   },
   "sidebar": {
+    "diskUsed": "{used} of {total} used",
     "help": "Help",
     "hugoNew": "Hugo New",
     "login": "Login",

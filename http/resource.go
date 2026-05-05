@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/spf13/afero"
@@ -30,7 +31,7 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 		Expand:     true,
 		ReadHeader: d.server.TypeDetectionByHeader,
 		Checker:    d,
-		Content:    true,
+		Content:    d.user.Perm.Download,
 	})
 	if err != nil {
 		return errToStatus(err), err
@@ -42,6 +43,9 @@ var resourceGetHandler = withUser(func(w http.ResponseWriter, r *http.Request, d
 		file.ApplySort()
 		return renderJSON(w, r, file)
 	} else if encoding == "true" {
+		if !d.user.Perm.Download {
+			return http.StatusAccepted, nil
+		}
 		if file.Type != "text" {
 			return renderJSON(w, r, file)
 		}
@@ -372,6 +376,69 @@ func patchAction(ctx context.Context, action, src, dst string, d *data, fileCach
 		return fmt.Errorf("unsupported action %s: %w", action, fberrors.ErrInvalidRequestParams)
 	}
 }
+
+// RecursiveEntry is a single file/directory entry returned by the recursive listing endpoint.
+type RecursiveEntry struct {
+	Path    string    `json:"path"`
+	Name    string    `json:"name"`
+	Size    int64     `json:"size"`
+	ModTime time.Time `json:"modified"`
+	IsDir   bool      `json:"isDir"`
+}
+
+// resourceGetRecursiveHandler returns a flat list of every file and directory
+// under the requested path, walking the tree recursively on the server side
+// so the client only needs a single HTTP call.
+var resourceGetRecursiveHandler = withUser(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+	rootPath := r.URL.Path
+	if rootPath == "" {
+		rootPath = "/"
+	}
+
+	// Make sure the root itself exists and is a directory.
+	info, err := d.user.Fs.Stat(rootPath)
+	if err != nil {
+		return errToStatus(err), err
+	}
+	if !info.IsDir() {
+		return http.StatusBadRequest, fmt.Errorf("path is not a directory")
+	}
+
+	entries := make([]RecursiveEntry, 0)
+
+	err = afero.Walk(d.user.Fs, rootPath, func(fPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // skip entries we cannot read
+		}
+
+		// Skip the root directory itself.
+		if fPath == rootPath {
+			return nil
+		}
+
+		// Respect user rules.
+		if !d.Check(fPath) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		entries = append(entries, RecursiveEntry{
+			Path:    fPath,
+			Name:    info.Name(),
+			Size:    info.Size(),
+			ModTime: info.ModTime(),
+			IsDir:   info.IsDir(),
+		})
+		return nil
+	})
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	return renderJSON(w, r, entries)
+})
 
 type DiskUsageResponse struct {
 	Total uint64 `json:"total"`
